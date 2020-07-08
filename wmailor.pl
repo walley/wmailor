@@ -6,18 +6,29 @@ use Config::Settings;
 use Curses::UI;
 
 my $cui = new Curses::UI( -color_support => 1 );
-my @menu = ( {
-  -label => 'File',
+
+my @menu = (
+  {
+    -label => 'File',
     -submenu => [
-  { -label => 'Save      ^S', -value => \&save_dialog  },
-  { -label => 'Exit      ^Q', -value => \&exit_dialog  }
-            ]
-}, {
-  -label => 'Help',
+      { -label => 'Save      ^S', -value => \&save_dialog  },
+      { -label => 'Exit      ^Q', -value => \&exit_dialog  },
+    ]
+  },
+  {
+    -label => 'Edit',
     -submenu => [
-  { -label => 'Exit      ^Q', -value => \&exit_dialog  }
-  ]
-},
+     {-label => 'User settings...', -value => \&user_dialog},
+     {-label => 'IMAP settings...', -value => \&imap_dialog},
+     {-label => 'SMTP settings...', -value => \&smtp_dialog},
+    ]
+  },
+  {
+    -label => 'Help',
+    -submenu => [
+     { -label => 'About...', -value => \&about_dialog  }
+    ]
+  },
 );
 
 sub exit_dialog()
@@ -49,16 +60,30 @@ sub save_dialog()
 my $menu = $cui->add(
              'menu','Menubar',
              -menu => \@menu,
-             -fg  => "blue",
+             -bg  => "green",
+             -fg  => "black",
              );
-my $win1 = $cui->add(
-             'win1', 'Window',
+
+my $win_folders = $cui->add(
+             'win_folders', 'Window',
              -border => 1,
              -y    => 1,
              -bfg  => 'red',
+    -width  => 15,
+    -height => 5,
              );
 
-my $texteditor = $win1->add(
+my $win_mail = $cui->add(
+             'win_mail', 'Window',
+             -border => 1,
+             -y    => 1,
+             -bfg  => 'red',
+    -padtop => 5,
+    -height => 20,
+
+             );
+
+my $texteditor = $win_mail->add(
                    "text", "TextEditor",
                    -vscrollbar => 1,
                    -wrapping   => 1,
@@ -69,12 +94,15 @@ my $texteditor = $win1->add(
 
 $cui->set_binding(sub {$menu->focus()}, "\cX");
 $cui->set_binding( \&exit_dialog, "\cQ");
+$texteditor->text(&mailstuff());
 $texteditor->focus();
 $cui->mainloop();
 
 
 sub mailstuff()
 {
+
+  my $out = "IMAP STUFF\n";
 
   my $settings = Config::Settings->new->parse_file ("myapp.settings");
 
@@ -99,19 +127,19 @@ sub mailstuff()
   $Authenticated = $imap->Authenticated();
   $Connected = $imap->Connected();
 
-  print "auth: $Authenticated\n";
-  print "Connected $Connected\n";
+  $out .= "auth: $Authenticated\n";
+  $out .= "Connected $Connected\n";
 
   $imap->search('SUBJECT',$imap->Quote("(no subject)"));
 
-  print join(", ",$imap->folders),".\n";
+  $out .= join(", ",$imap->folders),".\n";
 
-  print join(", ",$imap->folders("Archives" . $imap->separator),".\n");
+  $out .= join(", ",$imap->folders("Archives" . $imap->separator),".\n");
 
   my @raw_output = $imap->list(@args)  or die "Could not list: $@\n";
 
   foreach (@raw_output) {
-    print;
+    $out .= $_;
   }
 
   $imap->select("Inbox");
@@ -119,12 +147,14 @@ sub mailstuff()
   my @msgs = $imap->messages or die "Could not messages: $@\n";
 
   foreach (@msgs) {
-    print $_ . "\n";
+    $out .=  $_ . "\n";
   }
 
   for my $h (values % {$imap->parse_headers( scalar($imap->search("ALL")), "Subject", "Date")}) {
-    print map {"$_:\t$h->{$_}[0]\n"} keys %$h;
+    $out .=  map {"$_:\t$h->{$_}[0]\n"} keys %$h;
   }
 
   $imap->disconnect or warn "Could not disconnect: $@\n";
+
+  return $out;
 }
