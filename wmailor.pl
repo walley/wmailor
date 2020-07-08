@@ -1,6 +1,10 @@
 #!/usr/bin/perl
 
 use Mail::IMAPClient;
+use Config::Settings;
+
+
+my $settings = Config::Settings->new->parse_file ("myapp.settings");
 
 # returns an unconnected Mail::IMAPClient object:
 my $imap = Mail::IMAPClient->new;
@@ -8,6 +12,9 @@ my $imap = Mail::IMAPClient->new;
 # intervening code using the 1st object, then:
 # (returns a new, authenticated Mail::IMAPClient object)
 
+my $host = $settings->{imap}->{server};
+my $user = $settings->{user}->{user};
+my $pass = $settings->{user}->{pass};
 
 $imap = Mail::IMAPClient->new(  
                 Server => $host,
