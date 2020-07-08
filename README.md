@@ -1,0 +1,2 @@
+# wmailor
+tui mail client
