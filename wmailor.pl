@@ -7,6 +7,7 @@ use Curses::UI;
 
 my $imap;
 my $settings;
+my $win_folders;
 
 my $cui = new Curses::UI( -color_support => 1 );
 
@@ -42,59 +43,57 @@ my $menu = $cui->add(
              -fg  => "black",
              );
 
-my $win_folders = $cui->add(
-             'win_folders', 'Window',
-             -border => 1,
-             -y    => 1,
-             -bfg  => 'red',
-    -width  => 15,
-    -height => 5,
-             );
 
-my $win_mail = $cui->add(
-             'win_mail', 'Window',
-             -border => 1,
-             -y    => 1,
-             -bfg  => 'red',
-    -padtop => 5,
-    -height => 20,
-
-             );
-
-my $texteditor = $win_mail->add(
-                   "text", "TextEditor",
-                   -vscrollbar => 1,
-                   -wrapping   => 1,
-                   -text => "Here is some text ^X to activate menu ^Q to quit\n",
-                   -showlines => 1,
-                   -showhardreturns => 1,
-                   );
-
-$win_folders->add(
-    undef, 'Label',
-    -height     => $win_folders->height,
-    -width => $win_folders->width,
-    -text  => 'x',
-    -textalignment => 'middle',
-    -bold  => 1,
+my $win_mail = $cui->add('win_mail', 'Window',
+  -border => 1,
+  -y    => 1,
+  -bfg  => 'red',
+  -padleft => 20,
+  -height => 20,
 );
 
+my $texteditor = $win_mail->add("text", "TextEditor",
+  -vscrollbar => 1,
+  -wrapping   => 1,
+  -text => "Here is some text ^X to activate menu ^Q to quit\n",
+  -showlines => 1,
+  -showhardreturns => 1,
+);
 my $label = $win_mail->add(
     'mylabel', 'Label',
     -text      => 'Hello, world!',
     -bold      => 1,
 );
 
-my $listbox = $win_folders->add('lb', 'Listbox',
-                         -multi => 1,
-                         -htmltext => 1,
-                         -values => [ "<reverse>reverse text</reverse>",
-                                      "<bold>bold text</bold>",
-                                      "<underline>underlined text</underline>",
-                                      "<blink>blinking text</blink>",
-                                      "<dim>dim text</dim>",
-                                      ],
-                         );
+
+@values = ("a","b");
+$win_folders= $cui->add('list_window', 'Window',
+  -padtop => 1,
+  -width => 20,
+);
+
+my $ml = $win_folders->add('message_list', 'Listbox',
+   -values => \@values,
+   -labels => \%labels,
+   -vscrollbar => 1,
+   -wraparound => 1,
+   -border => 1,
+   -ipad   => 1,
+   -title  => 'Inbox',
+);
+
+#$win_folders->add(
+#    undef, 'Label',
+#    -height => $win_folders->height,
+#    -width => $win_folders->width,
+#    -text  => 'inbox',
+#    -textalignment => 'middle',
+#    -bold  => 1,
+#);
+
+$values[2] = "c";
+push (@values, "x");
+
 
 &main_stuff();
 
@@ -103,6 +102,10 @@ sub main_stuff()
 ################################################################################
 {
   &load_settings();
+  &imap_login();
+  my @f = &imap_folders();
+push (@values, @f);
+
   &create_ui();
 }
 
@@ -120,10 +123,13 @@ sub create_ui()
 
 
 ################################################################################
-sub imap_forlders()
+sub imap_folders()
 ################################################################################
 {
-
+  $imap->select("Inbox");
+  $out .= join(", ",$imap->folders),".\n";
+  $out .= join(", ",$imap->folders("Archives" . $imap->separator),".\n");
+  return $imap->folders;
 }
 
 ################################################################################
@@ -133,17 +139,10 @@ sub load_settings()
   $settings = Config::Settings->new->parse_file ("myapp.settings");
 }
 
-
 ################################################################################
-sub mailstuff()
+sub imap_login()
 ################################################################################
 {
-
-  my $out = "IMAP STUFF\n";
-
-# intervening code using the 1st object, then:
-# (returns a new, authenticated Mail::IMAPClient object)
-
   my $host = $settings-> {imap} -> {server};
   my $user = $settings-> {user} -> {user};
   my $pass = $settings-> {user} -> {pass};
@@ -158,15 +157,20 @@ sub mailstuff()
 
   $Authenticated = $imap->Authenticated();
   $Connected = $imap->Connected();
+}
+
+################################################################################
+sub mailstuff()
+################################################################################
+{
+
+  my $out = "IMAP STUFF\n";
 
   $out .= "auth: $Authenticated\n";
   $out .= "Connected $Connected\n";
 
   $imap->search('SUBJECT',$imap->Quote("(no subject)"));
 
-  $out .= join(", ",$imap->folders),".\n";
-
-#  $out .= join(", ",$imap->folders("Archives" . $imap->separator),".\n");
 
   my @raw_output = $imap->list(@args)  or die "Could not list: $@\n";
 
@@ -174,7 +178,6 @@ sub mailstuff()
     $out .= $_;
   }
 
-  $imap->select("Inbox");
 
   my @msgs = $imap->messages or die "Could not messages: $@\n";
 
