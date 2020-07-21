@@ -5,6 +5,9 @@ use Config::Settings;
 
 use Curses::UI;
 
+my $imap;
+my $settings;
+
 my $cui = new Curses::UI( -color_support => 1 );
 
 my @menu = (
@@ -31,31 +34,6 @@ my @menu = (
   },
 );
 
-sub exit_dialog()
-{
-  my $return = $cui->dialog(
-                 -message   => "Do you really want to quit?",
-                 -title     => "Are you sure???",
-                 -buttons   => ['yes', 'no'],
-
-               );
-
-  exit(0) if $return;
-}
-
-sub save_dialog()
-{
-#  my $dialog = $cui->add(
-#    'mydialog', 'Dialog::Filebrowser'
-#  );
-#  $dialog->focus;
-#  my $file = $dialog->get();
-#$cui->delete('mydialog');
-
-  my $file = $cui->savefilebrowser();
-
-
-}
 
 my $menu = $cui->add(
              'menu','Menubar',
@@ -92,29 +70,83 @@ my $texteditor = $win_mail->add(
                    -showhardreturns => 1,
                    );
 
-$cui->set_binding(sub {$menu->focus()}, "\cX");
-$cui->set_binding( \&exit_dialog, "\cQ");
-$texteditor->text(&mailstuff());
-$texteditor->focus();
-$cui->mainloop();
+$win_folders->add(
+    undef, 'Label',
+    -height     => $win_folders->height,
+    -width => $win_folders->width,
+    -text  => 'x',
+    -textalignment => 'middle',
+    -bold  => 1,
+);
+
+my $label = $win_mail->add(
+    'mylabel', 'Label',
+    -text      => 'Hello, world!',
+    -bold      => 1,
+);
+
+my $listbox = $win_folders->add('lb', 'Listbox',
+                         -multi => 1,
+                         -htmltext => 1,
+                         -values => [ "<reverse>reverse text</reverse>",
+                                      "<bold>bold text</bold>",
+                                      "<underline>underlined text</underline>",
+                                      "<blink>blinking text</blink>",
+                                      "<dim>dim text</dim>",
+                                      ],
+                         );
+
+&main_stuff();
+
+################################################################################
+sub main_stuff()
+################################################################################
+{
+  &load_settings();
+  &create_ui();
+}
+
+################################################################################
+sub create_ui()
+################################################################################
+{
+  $cui->set_binding(sub {$menu->focus()}, "\cX");
+  $cui->set_binding(\&exit_dialog, "\cQ");
+  $texteditor->text(&mailstuff());
+  $texteditor->focus();
+  $cui->mainloop();
+}
 
 
+
+################################################################################
+sub imap_forlders()
+################################################################################
+{
+
+}
+
+################################################################################
+sub load_settings()
+################################################################################
+{
+  $settings = Config::Settings->new->parse_file ("myapp.settings");
+}
+
+
+################################################################################
 sub mailstuff()
+################################################################################
 {
 
   my $out = "IMAP STUFF\n";
 
-  my $settings = Config::Settings->new->parse_file ("myapp.settings");
-
-# returns an unconnected Mail::IMAPClient object:
-  my $imap = Mail::IMAPClient->new;
-
 # intervening code using the 1st object, then:
 # (returns a new, authenticated Mail::IMAPClient object)
 
-  my $host = $settings-> {imap}-> {server};
-  my $user = $settings-> {user}-> {user};
-  my $pass = $settings-> {user}-> {pass};
+  my $host = $settings-> {imap} -> {server};
+  my $user = $settings-> {user} -> {user};
+  my $pass = $settings-> {user} -> {pass};
 
   $imap = Mail::IMAPClient->new (
             Server => $host,
@@ -134,7 +166,7 @@ sub mailstuff()
 
   $out .= join(", ",$imap->folders),".\n";
 
-  $out .= join(", ",$imap->folders("Archives" . $imap->separator),".\n");
+#  $out .= join(", ",$imap->folders("Archives" . $imap->separator),".\n");
 
   my @raw_output = $imap->list(@args)  or die "Could not list: $@\n";
 
@@ -157,4 +189,31 @@ sub mailstuff()
   $imap->disconnect or warn "Could not disconnect: $@\n";
 
   return $out;
+}
+
+################################################################################
+sub exit_dialog()
+################################################################################
+{
+  my $return = $cui->dialog(
+                 -message   => "Do you really want to quit?",
+                 -title     => "Are you sure???",
+                 -buttons   => ['yes', 'no'],
+               );
+
+  exit(0) if $return;
+}
+
+################################################################################
+sub save_dialog()
+################################################################################
+{
+#  my $dialog = $cui->add(
+#    'mydialog', 'Dialog::Filebrowser'
+#  );
+#  $dialog->focus;
+#  my $file = $dialog->get();
+#$cui->delete('mydialog');
+
+  my $file = $cui->savefilebrowser();
 }
